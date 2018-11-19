@@ -1,0 +1,85 @@
+﻿Sean DiGirolamo
+
+Discrete Event Simulator
+
+	This program simulates the discrete events in a system consisting of one
+cpu, and two disks.  The user can specify a number of configuration values in a
+config file to change the performance of the simulation.  Each server, the cpu,
+or one of the two disks, is represented by a queue of events for the server to
+handle.  The timeline of the simulation is organized by a priority queue,
+implemented via array heap. Events are pushed onto the priority queue and
+organized based on time.
+	I tested my program by using printf statements to find out where problem
+areas were, and  on occasion gdb. Everything is working properly to the best of
+my knowledge. One thing I should mention is that I did almost all structure work
+by pointer. This may seem strange, but I did this because I figured passing and
+copying pointers would be better than copying and passing full structures. For
+example, originally, my min_heap used an array of structures, but I switched it
+to be an array of pointers to structures. I found that this made it easier to
+represent “empty” slots of the array, because they can be simple null pointer
+rather than some sort of sentinel value. This also saves a small amount of
+memory and a small amount of resources when copying and swapping structures. It
+probably isn’t very impactful, but I think it is good practice and would matter
+on very weak machines.
+	Before the simulation starts, the program will first handle some
+maintenance. It will create a log file, named “log”, and a statistics file,
+named “stats” if they do not already exist. If they do already exist, it will
+simply append the data to the file. It then attempts to read the config file,
+“config” and parse the data. If the config file is not found, the program will
+exit. If the config file contains some values, but not others, the program will
+default to certain values specified in the code, but it is not recommended to do
+this because these values will not be printed to the log and stats file. If the
+values are specified in a config file, they will be output to the log and stats
+file. The values for the configuration are kept in a structure, so that they can
+all be passed to functions as a unit, but are not global values. I try to avoid
+using global variables. The same strategy is done for the statistics variables,
+which are used to calculate statistics towards the end of the program.  After we
+have a config file parsed, a log file, and a stats file, a queue for each server
+will be created, and a priority queue for the events will be created. It is
+assumed that each server is not busy and each queue is empty at the start of the
+simulation. To start the simulation, an event, job1 arrives, is created at time
+0 and pushed onto the priority queue along with another event, simulation
+finishes, at fin time. The simulation then enters a loop. At the beginning of
+this loop, it will pop off an event from the event priority queue. This event
+will be the one with the lowest time, so it will be the next event to occur. We
+set the current time of the simulation to the time of the event. We then enter a
+case statement which will determine what kind of event it is and handle it
+appropriately. A jobx finishes at cpu event is very different from a jobx
+arrives at cpu, or jobx finishes at disk1 event. Since the first job is a job
+arrives event, we then calculate the time for a new job to arrive at the cpu
+using a random number between the interval defined in config. We push this new
+event onto the priority queue to be handled later. After this new job is
+created, the current one is sent to the cpu. If the cpu is busy, we calculate
+the time that it will finish at it and push that event onto the priority queue.
+If not, then we simply push it onto the cpu’s queue and allow the cpu to deal
+with it later. If the event is a job finishes at cpu event, it goes to the
+appropriate case statement. In this case, the cpu queue is popped, and the
+values in the popped job are used to calculate some statistics. A random number
+is then generated to test whether or not the job should quit and disappear. If
+not, the job is then sent to either disk1 or disk2, whichever queue is smaller.
+If they are equal, it will default to disk1. The event for the job to finish at
+the disk is calculated if the disk is empty, or it is simply pushed onto its
+queue to be handled later, just like when a job is being sent to the cpu after
+“job arrives” event.  After this, if they cpu queue is empty, we simply return
+to the start of the loop. If the cpu still has jobs remaining, then we calculate
+the time of the next job at the cpu to finish and push that event onto the
+priority queue. We then return to the beginning of the loop. If the event is a
+finishes at disk event, it is then popped off of the disk queue, and then sent
+to the cpu. A new event for disk finishes is calculated if the disk’s queue is
+not empty. This process is basically a simplified version of the cpu finishes
+event, where it will always go back to the single cpu no matter what. Both disks
+handle this the same exact way. In addition, after a disk is finished, the job
+is immediately pushed onto the cpu queue. It does not become a job arrives event
+or anything in between. Job arrive events are considered to be input taken from
+some other source, such as a keyboard or mouse, or some other random outside
+source. The simulation will keep looping through this process until the next
+event to occur is our simulation finishes event, which was pushed onto the
+priority queue at the very beginning of our simulation. This event has a simple
+entry in the case statement where it just exists the simulation via goto
+statement. I had to use a goto statement , even though they are harder to read,
+because a break statement would’ve broken out of the case statement, but
+wouldn’t have exited the loop. I don’t think this severely impacted readability
+though. The simulation then records the statistics to the stats file, and frees
+any malloced data via the functions kill_queue(struct queue * q), and
+kill_heap(struct min_heap * heap), protecting from memory leaks. After this, the
+program will exit, and the simulation is finished.
